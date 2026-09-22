@@ -32,6 +32,7 @@ POST_BATCH_DIAGNOSTICS = {
     "LogProbs": LogProbs
 }
 EPOCH_END_DIAGNOSTICS = {
+    "EpochSnapshot": EpochSnapshot,
     "SelectedPoints": SelectedPoints,
     "SelectedPointsSummary": SelectedPointsSummary,
     "Timing": Timing,

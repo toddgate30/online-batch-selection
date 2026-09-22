@@ -258,6 +258,24 @@ epoch-end always fires at epoch end, train-end fires once at the very end.
 
 ### 6.4 Available leaves
 
+- **`EpochSnapshot`** (epoch end) — saves `{epoch, state_dict}` atomically to
+  `snapshots/epochs/epochNNN.pth.tar` for interpolation and other analysis.
+  Its independent `scheduler` defaults to `logarithmic`: every epoch through
+  25, multiples of 4 through 65, and multiples of 15 thereafter. Use
+  `per_epoch` to save every completed epoch. These model-only snapshots do
+  not replace the full resume checkpoints written by `Checkpoint`.
+
+  ```yaml
+  diagnostics:
+    diagnostics:
+      - EpochSnapshot:
+          scheduler: per_epoch
+  ```
+
+  A bare `- EpochSnapshot` uses the default logarithmic schedule. Snapshot
+  saving is now opt-in through this diagnostic for all methods, including
+  `DivBS_RhoLoss`.
+
 - **Snapshots (post batch):** `TrainLoss`, `TrainAcc`, `ValLoss`, `ValAcc`
   (and `TrueLabelTrainLoss`/`TrueLabelTrainAcc` for clean-label metrics on
   noisy data)

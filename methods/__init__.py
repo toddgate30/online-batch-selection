@@ -8,5 +8,6 @@ from .GradNorm import GradNorm
 from .GradNormIS import GradNormIS
 from .Augmented_RhoLoss import Augmented_RhoLoss
 from .DivBS_RhoLoss import DivBS_RhoLoss
+from .RhoLoss_DivBS import RhoLoss_DivBS 
 
-__all__ = ["Uniform", "DivBS", "Full", "Bayesian", "RhoLoss", "TrainLoss", "GradNorm", "GradNormIS", "Augmented_RhoLoss", "DivBS_RhoLoss"]
+__all__ = ["Uniform", "DivBS", "Full", "Bayesian", "RhoLoss", "TrainLoss", "GradNorm", "GradNormIS", "Augmented_RhoLoss", "DivBS_RhoLoss", "RhoLoss_DivBS"]

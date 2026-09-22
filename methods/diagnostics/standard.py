@@ -17,6 +17,7 @@ import torch
 import torch.nn.functional as F
 
 from methods.diagnostics.base import Diagnostic, DiagnosticInfo, LogType, Summary, _SUMMARY_STATS
+from methods.diagnostics.schedule import EpochSchedule
 from run_dir import atomic_save
 
 # --------------------------------------------------------------------------- #
@@ -223,7 +224,7 @@ class LogProbs(Diagnostic):
         self.train_forward_pass = manager.build(ForwardPass, manager, "train",)
         self.val_forward_pass = manager.build(ForwardPass, manager, "val",)
         self.training_state = manager.build(TrainingState, manager, **params)
-        self.progress_snapshots_dir = os.path.join(self.method.config["save_dir"], "/logs/log_probs")
+        self.progress_snapshots_dir = os.path.join(self.method.config["save_dir"], "logs/log_probs")
         os.makedirs(self.progress_snapshots_dir, exist_ok=True)
     
 
@@ -239,7 +240,9 @@ class LogProbs(Diagnostic):
         train_log_probs = (train_log_probs.detach().cpu())
         val_log_probs = (val_log_probs.detach().cpu())
 
-        snapshot = {"step": total_steps, "yh": train_log_probs, "yvh": val_log_probs}
+        current_method = getattr(self.method, "current_method", type(self.method).__name__)
+
+        snapshot = {"method": current_method,"step": total_steps, "yh": train_log_probs, "yvh": val_log_probs}
         self.checkpoint_path = os.path.join(self.progress_snapshots_dir, f"log_probs_step_{total_steps}.pth.tar")
         atomic_save(lambda p: torch.save(snapshot, p), self.checkpoint_path)
 
@@ -284,6 +287,33 @@ class Checkpoint(Diagnostic):
 
     def __eq__(self, other):
         return isinstance(other, Checkpoint)
+
+class EpochSnapshot(Diagnostic):
+    """Save epoch/model snapshots for analysis, independently of Checkpoint.
+
+    scheduler accepts 'logarithmic' (default), 'per_epoch', or a callable
+    taking TrainState. These are model snapshots, not full resume checkpoints.
+    """
+
+    def __init__(self, manager, should_run=None, scheduler="logarithmic", **params):
+        self.scheduler = EpochSchedule(scheduler) if isinstance(scheduler, str) else scheduler
+        if not callable(self.scheduler):
+            raise TypeError("EpochSnapshot scheduler must be a schedule name or callable.")
+        super().__init__(
+            manager,
+            log_path=params.get("log_path"),
+            should_run=lambda state: self.scheduler(state) and (should_run is None or should_run(state)),
+        )
+        self.snapshots_dir = os.path.join(self.method.config["save_dir"], "snapshots", "epochs")
+
+    def _run(self):
+        epoch = self.get_state().epoch
+        os.makedirs(self.snapshots_dir, exist_ok=True)
+        path = os.path.join(self.snapshots_dir, f"epoch{epoch:03d}.pth.tar")
+        snapshot = {"epoch": epoch, "state_dict": self.method.model.state_dict()}
+        atomic_save(lambda p: torch.save(snapshot, p), path)
+        return DiagnosticInfo("epoch_snapshot", {"epoch": epoch, "path": path}, log_type=LogType.FILEONLY)
+
 
 class SelectedPoints(Diagnostic):
     def __init__(self, manager, should_run=None, **params):
@@ -468,6 +498,5 @@ def _to_numpy_indices(values):
     if isinstance(values, torch.Tensor):
         return values.detach().cpu().numpy().astype(np.int64, copy=False).reshape(-1)
     return np.asarray(values, dtype=np.int64).reshape(-1)
-
 
 
